@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter import ttk, colorchooser
-from constants import POSITIONS, FONTS, WINDOW_SETTINGS
+from config.constants import POSITIONS, FONTS, WINDOW_SETTINGS
 from PIL import Image, ImageTk
 
 class WatermarkView:

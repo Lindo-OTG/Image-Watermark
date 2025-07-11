@@ -1,5 +1,5 @@
 from PIL import Image, ImageDraw, ImageFont
-from constants import FONTS, DEFAULT_SETTINGS
+from config.constants import FONTS, DEFAULT_SETTINGS
 import os
 
 class WatermarkModel:

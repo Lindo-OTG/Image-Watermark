@@ -1,6 +1,6 @@
-from model import WatermarkModel
-from view import WatermarkView
-from constants import DEFAULT_SETTINGS
+from src.model import WatermarkModel
+from src.view import WatermarkView
+from config.constants import DEFAULT_SETTINGS
 from tkinter import filedialog
 import os
 
