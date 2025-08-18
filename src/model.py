@@ -61,25 +61,43 @@ class WatermarkModel:
         
         # Apply watermark
         if self.settings["angle"] != 0:
-            txt_img = Image.new('RGBA', (text_width + padding*2, text_height + padding*2), (0, 0, 0, 0))
+            # Add padding around text
+            txt_img = Image.new(
+                'RGBA',
+                (text_width + padding*4, text_height + padding*4),
+                (0, 0, 0, 0)
+            )
             txt_draw = ImageDraw.Draw(txt_img)
-            txt_draw.text((padding, padding), self.settings["text"], font=font, fill=rgba)
-            rotated_txt = txt_img.rotate(self.settings["angle"], expand=1, resample=Image.BICUBIC)
-            self.watermarked_image.paste(rotated_txt, (x, y), rotated_txt)
+            txt_draw.text((padding*2, padding*2), self.settings["text"], font=font, fill=rgba)
+
+            # Rotate
+            rotated_txt = txt_img.rotate(self.settings["angle"], expand=True, resample=Image.BICUBIC)
+
+            # Adjust position so it stays centered properly
+            rx, ry = rotated_txt.size
+            paste_x = x - rx // 2 + text_width // 2
+            paste_y = y - ry // 2 + text_height // 2
+
+            self.watermarked_image.paste(rotated_txt, (paste_x, paste_y), rotated_txt)
         else:
             draw.text((x, y), self.settings["text"], font=font, fill=rgba)
             
         return self.watermarked_image
     
     def _calculate_position(self, position, img_w, img_h, text_w, text_h, padding):
-        # Simplified position calculation
         positions = {
             "center": ((img_w - text_w) // 2, (img_h - text_h) // 2),
             "top left": (padding, padding),
             "top right": (img_w - text_w - padding, padding),
-            # Add other positions as needed
+            "bottom left": (padding, img_h - text_h - padding),
+            "bottom right": (img_w - text_w - padding, img_h - text_h - padding),
+            "top center": ((img_w - text_w) // 2, padding),
+            "bottom center": ((img_w - text_w) // 2, img_h - text_h - padding),
+            "left center": (padding, (img_h - text_h) // 2),
+            "right center": (img_w - text_w - padding, (img_h - text_h) // 2),
         }
-        return positions.get(position, (0, 0))
+        
+        return positions.get(position, (padding, padding))
     
     def save_image(self, file_path):
         if not self.watermarked_image:

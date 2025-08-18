@@ -94,25 +94,26 @@ class WatermarkView:
             self.controls["color"]["var"].set(color[1])
     
     def display_image(self, image):
-        canvas_width = self.image_frame.winfo_width() - 40
-        canvas_height = self.image_frame.winfo_height() - 40
-        
+        # Keep canvas fixed instead of resizing each redraw
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+
         if canvas_width <= 1 or canvas_height <= 1:
             canvas_width, canvas_height = 800, 500
-        
+
+        # Scale image to fit canvas, not recursive zoom
         img_width, img_height = image.size
         ratio = min(canvas_width / img_width, canvas_height / img_height)
         new_size = (int(img_width * ratio), int(img_height * ratio))
-        
+
         display_img = image.resize(new_size, Image.LANCZOS)
         self.display_photo = ImageTk.PhotoImage(display_img)
-        
+
+        # Clear only the image, not the whole canvas size
         self.canvas.delete("all")
-        self.canvas.config(width=canvas_width, height=canvas_height)
         self.canvas.create_image(
-            (canvas_width - new_size[0]) // 2, 
-            (canvas_height - new_size[1]) // 2, 
-            anchor=NW, 
+            canvas_width // 2, canvas_height // 2,
+            anchor="center",
             image=self.display_photo
         )
     
