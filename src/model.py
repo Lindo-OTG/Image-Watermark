@@ -8,7 +8,7 @@ class WatermarkModel:
         self.original_image = None
         self.watermarked_image = None
         self.settings = DEFAULT_SETTINGS.copy()
-        
+
     def load_image(self, file_path):
         try:
             self.image_path = file_path
@@ -17,14 +17,14 @@ class WatermarkModel:
         except Exception as e:
             print(f"Error loading image: {e}")
             return False
-            
+
     def apply_watermark(self):
         if not self.original_image:
             return None
-            
+
         self.watermarked_image = self.original_image.copy()
         draw = ImageDraw.Draw(self.watermarked_image, 'RGBA')
-        
+
         # Get font
         try:
             font_file = FONTS.get(self.settings["font"], "arial.ttf")
@@ -32,8 +32,8 @@ class WatermarkModel:
         except Exception as e:
             print(f"Font error: {e}")
             font = ImageFont.load_default()
-        
-        # Process color and opacity
+
+        # Color and opacity
         color = self.settings["color"]
         try:
             if color.startswith('#'):
@@ -42,26 +42,27 @@ class WatermarkModel:
                 rgb = (255, 255, 255)
         except:
             rgb = (255, 255, 255)
-        
+
         rgba = rgb + (self.settings["opacity"],)
-        
-        # Calculate text size and position
+
+        # Text size
         bbox = draw.textbbox((0, 0), self.settings["text"], font=font)
         text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
         padding = int(max(text_width, text_height) * 0.3)
-        
-        # Position calculation (simplified for example)
+
+        # Position
         img_width, img_height = self.watermarked_image.size
-        x, y = self._calculate_position(
-            self.settings["position"],
-            img_width, img_height,
-            text_width, text_height,
-            padding
-        )
-        
-        # Apply watermark
+        pos = self.settings["position"]
+
+        if isinstance(pos, str) and pos.startswith("custom:"):
+            x, y = map(int, pos.replace("custom:", "").split(","))
+        else:
+            x, y = self._calculate_position(
+                pos, img_width, img_height, text_width, text_height, padding
+            )
+
+        # Draw rotated / normal text
         if self.settings["angle"] != 0:
-            # Add padding around text
             txt_img = Image.new(
                 'RGBA',
                 (text_width + padding*4, text_height + padding*4),
@@ -70,10 +71,8 @@ class WatermarkModel:
             txt_draw = ImageDraw.Draw(txt_img)
             txt_draw.text((padding*2, padding*2), self.settings["text"], font=font, fill=rgba)
 
-            # Rotate
             rotated_txt = txt_img.rotate(self.settings["angle"], expand=True, resample=Image.BICUBIC)
 
-            # Adjust position so it stays centered properly
             rx, ry = rotated_txt.size
             paste_x = x - rx // 2 + text_width // 2
             paste_y = y - ry // 2 + text_height // 2
@@ -81,9 +80,9 @@ class WatermarkModel:
             self.watermarked_image.paste(rotated_txt, (paste_x, paste_y), rotated_txt)
         else:
             draw.text((x, y), self.settings["text"], font=font, fill=rgba)
-            
+
         return self.watermarked_image
-    
+
     def _calculate_position(self, position, img_w, img_h, text_w, text_h, padding):
         positions = {
             "center": ((img_w - text_w) // 2, (img_h - text_h) // 2),
@@ -96,9 +95,8 @@ class WatermarkModel:
             "left center": (padding, (img_h - text_h) // 2),
             "right center": (img_w - text_w - padding, (img_h - text_h) // 2),
         }
-        
         return positions.get(position, (padding, padding))
-    
+
     def save_image(self, file_path):
         if not self.watermarked_image:
             return False
