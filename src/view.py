@@ -1,14 +1,14 @@
 from tkinter import *
 from tkinter import ttk, colorchooser
 from config.constants import POSITIONS, FONTS, WINDOW_SETTINGS
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 class WatermarkView:
     def __init__(self, root):
         self.root = root
         self.setup_window()
         self.create_widgets()
-        self.drag_data = {"x": 0, "y": 0, "item": None}
+        self.drag_data = {"x": 0, "y": 0, "item": None, "img": None}
 
     def setup_window(self):
         self.root.title(WINDOW_SETTINGS["title"])
@@ -20,14 +20,14 @@ class WatermarkView:
         )
 
     def create_widgets(self):
-        # Main frames
+        # Frames
         self.image_frame = Frame(self.root, bg='white', bd=2, relief=GROOVE)
         self.image_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=10, pady=10)
 
         self.control_frame = Frame(self.root, bg='white', bd=2, relief=GROOVE)
         self.control_frame.pack(side=RIGHT, fill=Y, padx=10, pady=10)
 
-        # Image display canvas
+        # Canvas
         self.canvas = Canvas(self.image_frame, bg='#f0f0f0', bd=0, highlightthickness=0)
         self.canvas.pack(expand=True, fill=BOTH, padx=20, pady=20)
 
@@ -42,7 +42,7 @@ class WatermarkView:
         )
         self.canvas.create_window(0, 0, anchor="nw", window=self.upload_btn, tags="upload_btn")
 
-        # Watermark controls
+        # Controls
         Label(self.control_frame, text="WATERMARK OPTIONS", font=("Arial", 14, "bold"), bg="white").pack(pady=10)
 
         self.controls = {}
@@ -66,11 +66,10 @@ class WatermarkView:
         self.reset_btn.pack(side=LEFT, padx=5)
         self.save_btn.pack(side=LEFT, padx=5)
 
-        # Dragging
+        # Dragging events
         self.canvas.bind("<Button-1>", self.on_start_drag)
         self.canvas.bind("<B1-Motion>", self.on_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_release_drag)
-        self.canvas.bind("<Motion>", self.on_hover)
 
     def create_control(self, label, name, widget_type, **kwargs):
         frame = Frame(self.control_frame, bg="white")
@@ -100,9 +99,9 @@ class WatermarkView:
             self.controls["color"]["var"].set(color[1])
 
     def display_image(self, image):
+        """Show background image and overlay draggable watermark"""
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
-
         if canvas_width <= 1 or canvas_height <= 1:
             canvas_width, canvas_height = 800, 500
 
@@ -114,25 +113,57 @@ class WatermarkView:
         self.display_photo = ImageTk.PhotoImage(display_img)
 
         self.canvas.delete("all")
-        self.canvas.create_image(
-            canvas_width // 2, canvas_height // 2,
-            anchor="center",
-            image=self.display_photo
-        )
+        self.canvas.create_image(canvas_width // 2, canvas_height // 2, anchor="center", image=self.display_photo)
 
-        # Add draggable watermark text overlay
+        # Draw watermark overlay
+        self._draw_watermark_overlay(canvas_width, canvas_height)
+
+    def _draw_watermark_overlay(self, canvas_width, canvas_height):
         settings = self.get_settings()
-        self.watermark_item = self.canvas.create_text(
-            canvas_width // 2,
-            canvas_height // 2,
-            text=settings["text"],
-            font=(settings["font"], int(settings["size"])),
-            fill=settings["color"]
+        text = settings["text"]
+        size = int(settings["size"])
+        font_name = settings["font"]
+        color = settings["color"]
+        opacity = int(settings["opacity"])
+        angle = int(settings["angle"])
+
+        # Convert color to RGBA
+        try:
+            if color.startswith("#"):
+                rgb = tuple(int(color[i:i+2], 16) for i in (1, 3, 5))
+            else:
+                rgb = (255, 255, 255)
+        except:
+            rgb = (255, 255, 255)
+        rgba = rgb + (opacity,)
+
+        # Render text with PIL
+        try:
+            font_file = FONTS.get(font_name, "arial.ttf")
+            font = ImageFont.truetype(font_file, size)
+        except:
+            font = ImageFont.load_default()
+
+        dummy_img = Image.new("RGBA", (500, 200), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(dummy_img)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_w, text_h = bbox[2]-bbox[0], bbox[3]-bbox[1]
+
+        txt_img = Image.new("RGBA", (text_w+20, text_h+20), (0, 0, 0, 0))
+        txt_draw = ImageDraw.Draw(txt_img)
+        txt_draw.text((10, 10), text, font=font, fill=rgba)
+
+        if angle != 0:
+            txt_img = txt_img.rotate(angle, expand=True, resample=Image.BICUBIC)
+
+        self.overlay_photo = ImageTk.PhotoImage(txt_img)
+        self.watermark_item = self.canvas.create_image(
+            canvas_width//2, canvas_height//2, image=self.overlay_photo, anchor="center"
         )
         self.canvas.tag_bind(self.watermark_item, "<Enter>", lambda e: self.canvas.config(cursor="hand2"))
         self.canvas.tag_bind(self.watermark_item, "<Leave>", lambda e: self.canvas.config(cursor=""))
 
-    # --- Dragging watermark ---
+    # --- Dragging watermark overlay ---
     def on_start_drag(self, event):
         item = self.canvas.find_closest(event.x, event.y)
         if item and item[0] == self.watermark_item:
@@ -153,10 +184,6 @@ class WatermarkView:
             coords = self.canvas.coords(self.drag_data["item"])
             self.controls["position"]["var"].set(f"custom:{int(coords[0])},{int(coords[1])}")
             self.drag_data["item"] = None
-
-    def on_hover(self, event):
-        # handled by tag_bind for hand cursor
-        pass
 
     def show_upload_button(self):
         self.canvas.delete("all")
