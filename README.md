@@ -1,2 +1,2 @@
-# Image-Watermark
+#MarkIT
 A Python Image watermark app.
