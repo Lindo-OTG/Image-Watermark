@@ -1,7 +1,9 @@
 from tkinter import *
 from tkinter import ttk, colorchooser
+from components.GradientButton import GradientButton
 from config.constants import POSITIONS, FONTS, WINDOW_SETTINGS
 from PIL import Image, ImageTk, ImageDraw, ImageFont, ImageColor
+
 
 def _parse_hex(color_str, default=(255, 255, 255)):
     try:
@@ -12,8 +14,8 @@ def _parse_hex(color_str, default=(255, 255, 255)):
     except Exception:
         return default
 
+
 def _make_text_image(text, font, rgba, angle):
-    # Measure
     tmp = Image.new("RGBA", (2, 2), (0, 0, 0, 0))
     d = ImageDraw.Draw(tmp)
     bbox = d.textbbox((0, 0), text, font=font)
@@ -31,24 +33,27 @@ def _make_text_image(text, font, rgba, angle):
         txt = txt.rotate(angle, expand=True, resample=Image.BICUBIC)
     return txt
 
+
 class WatermarkView:
-    def __init__(self, root):
+    def __init__(self, root, image_paths):
         self.root = root
+        self.logo_path = image_paths['LOGO_PATH']
+        self.upload_icon_path = image_paths['UPLOAD_ICON']
         self.setup_window()
         self.create_widgets()
+        self.show_upload_button()
 
         # State for preview mapping
-        self._current_image = None        # PIL image (original)
-        self._img_size = (0, 0)           # original image (W,H)
-        self._disp_size = (0, 0)          # displayed image (w,h)
-        self._offset = (0, 0)             # top-left of displayed image inside canvas
-        self._scale = 1.0                 # disp_size / img_size ratio
+        self._current_image = None
+        self._img_size = (0, 0)
+        self._disp_size = (0, 0)
+        self._offset = (0, 0)
+        self._scale = 1.0
 
         # Watermark overlay state
         self.watermark_item = None
         self.overlay_photo = None
         self.overlay_size = (0, 0)
-
         self.drag_data = {"x": 0, "y": 0, "item": None}
 
         # Re-render preview if canvas is resized
@@ -65,31 +70,103 @@ class WatermarkView:
 
     def create_widgets(self):
         # Frames
-        self.image_frame = Frame(self.root, bg='white', bd=2, relief=GROOVE)
-        self.image_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=10, pady=10)
+        self.image_frame = Frame(self.root, bg='#3740ec', bd=2, relief=GROOVE)
+        self.image_frame.pack(side=RIGHT, fill=BOTH, expand=True, padx=10, pady=10)
 
-        self.control_frame = Frame(self.root, bg='white', bd=2, relief=GROOVE)
-        self.control_frame.pack(side=RIGHT, fill=Y, padx=10, pady=10)
+        self.control_frame = Frame(self.root, bg="#3740ec", bd=2, relief=GROOVE)
+        self.control_frame.pack(side=LEFT, fill=Y, padx=10, pady=10)
 
-        # Canvas
+        # Canvas setup
         self.canvas = Canvas(self.image_frame, bg='#f0f0f0', bd=0, highlightthickness=0)
-        self.canvas.pack(expand=True, fill=BOTH, padx=20, pady=20)
+        self.canvas.pack(expand=True, fill=BOTH, padx=10, pady=10)
 
-        self.upload_btn = Button(
-            self.canvas,
-            text="UPLOAD IMAGE",
-            font=("Arial", 16),
-            bg="#f0f0f0",
-            fg="#333",
-            relief=RAISED,
-            bd=3
-        )
-        self.canvas.create_window(0, 0, anchor="nw", window=self.upload_btn, tags="upload_btn")
+        # Create styled upload button
+        self._create_upload_button()
+
+        # LOGO
+        self._create_logo_section()
 
         # Controls
-        Label(self.control_frame, text="WATERMARK OPTIONS", font=("Arial", 14, "bold"), bg="white").pack(pady=10)
+        Label(self.control_frame, text="WATERMARK OPTIONS",
+              font=("Segoe UI", 15, "bold"), bg="#3740ec", fg="white").pack(pady=10)
 
         self.controls = {}
+        self._create_controls()
+
+        # Action buttons
+        self._create_action_buttons()
+
+        # Dragging events
+        self.canvas.bind("<Button-1>", self.on_start_drag)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_release_drag)
+
+    def _create_upload_button(self):
+        """Create a styled upload button with icon + text"""
+        try:
+            icon_img = Image.open(self.upload_icon_path)
+            icon_img = icon_img.resize((32, 32), Image.LANCZOS)
+            self.upload_icon = ImageTk.PhotoImage(icon_img)
+        except Exception as e:
+            print(f"Error loading upload icon: {e}")
+            self.upload_icon = None
+
+        # Create button
+        self.upload_btn = GradientButton(
+            self.canvas,
+            text="UPLOAD IMAGE",
+            command=lambda: self.controller.load_image(),
+            width=200,
+            height=70,
+            color1="#4facfe",   # top gradient color
+            color2="#00f2fe"    # bottom gradient color
+        )
+        
+        self.upload_btn_window = self.canvas.create_window(
+            self.canvas.winfo_width()//2,
+            self.canvas.winfo_height()//2,
+            anchor="center",
+            window=self.upload_btn,
+            tags="upload_btn"
+        )
+
+        # Hover effect
+        def on_enter(e):
+            self.upload_btn.config(bg="#e0e0e0", relief="groove")
+
+        def on_leave(e):
+            self.upload_btn.config(bg="#f0f0f0", relief="raised")
+
+        self.upload_btn.bind("<Enter>", on_enter)
+        self.upload_btn.bind("<Leave>", on_leave)
+
+
+    def _create_logo_section(self):
+        logo_frame = Frame(self.control_frame, bg="#ffffff", height=150)
+        logo_frame.pack(fill=X)
+
+        if self.logo_path:
+            try:
+                logo_img = Image.open(self.logo_path)
+                logo_img = logo_img.resize((180, 130), Image.LANCZOS)
+                self.logo_photo = ImageTk.PhotoImage(logo_img)
+                logo_label = Label(logo_frame, image=self.logo_photo, bg="#ffffff")
+                logo_label.pack(pady=10)
+            except Exception as e:
+                print(f"Error loading logo: {e}")
+                self._create_fallback_logo(logo_frame)
+        else:
+            self._create_fallback_logo(logo_frame)
+
+    def _create_fallback_logo(self, frame):
+        Label(frame,
+              text="MarkIT",
+              bg="#2f3bff",
+              fg="white",
+              font=("Segoe UI", 15, "bold")
+              ).pack(pady=20)
+
+    def _create_controls(self):
         self.create_control("TEXT", "text", Entry)
         self.create_control("POSITION", "position", ttk.Combobox, values=POSITIONS)
         self.create_control("SIZE", "size", Scale, from_=10, to=200)
@@ -98,41 +175,32 @@ class WatermarkView:
         self.create_control("OPACITY", "opacity", Scale, from_=0, to=255)
         self.create_control("ANGLE", "angle", Scale, from_=-90, to=90)
 
-        # Action buttons
-        button_frame = Frame(self.control_frame, bg="white")
+    def _create_action_buttons(self):
+        button_frame = Frame(self.control_frame, bg="#2f3bff")
         button_frame.pack(pady=20)
 
-        self.discard_btn = Button(button_frame, text="DISCARD", bg="#ff6b6b", fg="white", padx=10)
-        self.reset_btn = Button(button_frame, text="RESET", bg="#ffa502", fg="white", padx=10)
+        self.discard_btn = Button(button_frame, text="DISCARD", bg="#ffa502", fg="white", padx=10)
+        self.reset_btn = Button(button_frame, text="RESET", bg="#ff6b6b", fg="white", padx=10)
         self.save_btn = Button(button_frame, text="SAVE", bg="#2ed573", fg="white", padx=10)
 
-        self.discard_btn.pack(side=LEFT, padx=5)
-        self.reset_btn.pack(side=LEFT, padx=5)
-        self.save_btn.pack(side=LEFT, padx=5)
-
-        # Dragging events
-        self.canvas.bind("<Button-1>", self.on_start_drag)
-        self.canvas.bind("<B1-Motion>", self.on_drag)
-        self.canvas.bind("<ButtonRelease-1>", self.on_release_drag)
+        self.discard_btn.pack(side=LEFT, padx=5, pady=10)
+        self.reset_btn.pack(side=LEFT, padx=5, pady=10)
+        self.save_btn.pack(side=LEFT, padx=5, pady=10)
 
     def create_control(self, label, name, widget_type, **kwargs):
-        frame = Frame(self.control_frame, bg="white")
-        frame.pack(fill=X, padx=5, pady=5)
-        Label(frame, text=label, bg="white", width=12, anchor="w").pack(side=LEFT)
+        frame = Frame(self.control_frame, bg="#3740ec")
+        frame.pack(fill=X, padx=15, pady=5)
+        Label(frame, text=label, font=("Arial", 10, "bold"),
+              bg="#3740ec", fg="white", width=12, anchor="w").pack(side=LEFT)
 
         if widget_type == ttk.Combobox:
             var = StringVar()
             control = widget_type(frame, textvariable=var, state="readonly", **kwargs)
         elif widget_type == Scale:
             var = IntVar()
-            control = widget_type(
-                frame,
-                from_=kwargs.pop('from_'),
-                to=kwargs.pop('to'),
-                variable=var,
-                orient=HORIZONTAL,
-                **kwargs
-            )
+            control = widget_type(frame, from_=kwargs.pop('from_'),
+                                  to=kwargs.pop('to'), variable=var,
+                                  orient=HORIZONTAL, **kwargs)
         else:
             var = StringVar()
             control = widget_type(frame, textvariable=var, **kwargs)
@@ -148,13 +216,8 @@ class WatermarkView:
         if color[1]:
             self.controls["color"]["var"].set(color[1])
 
-    # ---------- Public preview API ----------
-
+    # ---------- Image Display Methods ----------
     def display_image(self, image):
-        """
-        Render the image to fully fit inside the canvas (contain), centered,
-        and draw the draggable watermark overlay according to current settings.
-        """
         self._current_image = image
         W, H = image.size
         self._img_size = (W, H)
@@ -175,27 +238,12 @@ class WatermarkView:
         self.display_photo = ImageTk.PhotoImage(disp_img)
 
         self.canvas.delete("all")
-        # Draw image at its top-left offset (north-west anchor)
         self.canvas.create_image(off_x, off_y, anchor="nw", image=self.display_photo)
-
-        # Draw watermark overlay on top
         self._draw_watermark_overlay()
 
     def redraw(self):
         if self._current_image is not None:
             self.display_image(self._current_image)
-
-    # ---------- Internal helpers ----------
-
-    def _current_settings(self):
-        s = {name: data["var"].get() for name, data in self.controls.items()}
-        # Normalize numeric types
-        for k in ("size", "opacity", "angle"):
-            try:
-                s[k] = int(s[k])
-            except Exception:
-                pass
-        return s
 
     def _draw_watermark_overlay(self):
         if self._current_image is None:
@@ -210,7 +258,6 @@ class WatermarkView:
         angle = int(settings["angle"])
         pos = settings["position"]
 
-        # Build PIL text image
         try:
             font_file = FONTS.get(font_name, "arial.ttf")
             font = ImageFont.truetype(font_file, size)
@@ -222,28 +269,28 @@ class WatermarkView:
         self.overlay_size = (txt_img.width, txt_img.height)
         self.overlay_photo = ImageTk.PhotoImage(txt_img)
 
-        # Compute center in canvas coordinates
         x, y = self._resolve_canvas_center(pos)
-
-        # Create overlay item
         self.watermark_item = self.canvas.create_image(int(x), int(y), image=self.overlay_photo, anchor="center")
         self.canvas.tag_bind(self.watermark_item, "<Enter>", lambda e: self.canvas.config(cursor="hand2"))
         self.canvas.tag_bind(self.watermark_item, "<Leave>", lambda e: self.canvas.config(cursor=""))
 
+    # ---------- Helper Methods ----------
+    def _current_settings(self):
+        s = {name: data["var"].get() for name, data in self.controls.items()}
+        for k in ("size", "opacity", "angle"):
+            try:
+                s[k] = int(s[k])
+            except Exception:
+                pass
+        return s
+
     def _resolve_canvas_center(self, pos):
-        """
-        Convert position (preset or custom_pct) to canvas center coordinates,
-        taking into account the image offset and scale.
-        """
         off_x, off_y = self._offset
         disp_w, disp_h = self._disp_size
         ow, oh = self.overlay_size
-
-        # Default padding ~2% of displayed image min dim
         pad = max(8, int(0.02 * min(disp_w, disp_h)))
 
         if isinstance(pos, str) and pos.startswith("custom_pct:"):
-            # Map normalized (u,v) of image to canvas coords
             try:
                 uv = pos.split("custom_pct:")[1]
                 u_str, v_str = uv.split(",")
@@ -254,7 +301,6 @@ class WatermarkView:
             except Exception:
                 pass
 
-        # Named presets based on displayed image rectangle
         centers = {
             "center": (off_x + disp_w / 2, off_y + disp_h / 2),
             "top left": (off_x + pad + ow / 2, off_y + pad + oh / 2),
@@ -268,8 +314,21 @@ class WatermarkView:
         }
         return centers.get(str(pos), (off_x + disp_w / 2, off_y + disp_h / 2))
 
-    # ---------- Dragging watermark overlay ----------
+    def _center_upload_button(self, event=None):
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
 
+        if canvas_width > 1 and canvas_height > 1:
+            self.canvas.delete("upload_btn")
+            self.canvas.create_window(
+                canvas_width // 2,
+                canvas_height // 2,
+                anchor="center",
+                window=self.upload_btn,
+                tags="upload_btn"
+            )
+
+    # ---------- Drag Handling ----------
     def on_start_drag(self, event):
         if not self.watermark_item:
             return
@@ -285,28 +344,18 @@ class WatermarkView:
 
         dx = event.x - self.drag_data["x"]
         dy = event.y - self.drag_data["y"]
-
-        # Compute proposed new center
         coords = self.canvas.coords(self.drag_data["item"])
         cx = coords[0] + dx
         cy = coords[1] + dy
 
-        # Constrain movement to the displayed image area so the watermark stays fully visible
         off_x, off_y = self._offset
         disp_w, disp_h = self._disp_size
         ow, oh = self.overlay_size
 
-        min_x = off_x + ow / 2
-        max_x = off_x + disp_w - ow / 2
-        min_y = off_y + oh / 2
-        max_y = off_y + disp_h - oh / 2
+        cx = max(off_x + ow / 2, min(off_x + disp_w - ow / 2, cx))
+        cy = max(off_y + oh / 2, min(off_y + disp_h - oh / 2, cy))
 
-        cx = max(min_x, min(max_x, cx))
-        cy = max(min_y, min(max_y, cy))
-
-        # Move item to the clamped center
         self.canvas.coords(self.drag_data["item"], cx, cy)
-
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
@@ -314,35 +363,29 @@ class WatermarkView:
         if not self.drag_data["item"]:
             return
 
-        # Save normalized (u,v) relative to the image, so it survives resizes/setting changes
         coords = self.canvas.coords(self.drag_data["item"])
         cx, cy = coords[0], coords[1]
 
         off_x, off_y = self._offset
         disp_w, disp_h = self._disp_size
 
-        # Map center in canvas -> normalized in image [0,1]
-        u = (cx - off_x) / max(1, disp_w)
-        v = (cy - off_y) / max(1, disp_h)
-        u = max(0.0, min(1.0, u))
-        v = max(0.0, min(1.0, v))
+        u = max(0.0, min(1.0, (cx - off_x) / max(1, disp_w)))
+        v = max(0.0, min(1.0, (cy - off_y) / max(1, disp_h)))
 
         self.controls["position"]["var"].set(f"custom_pct:{u:.6f},{v:.6f}")
         self.drag_data["item"] = None
 
-    # ---------- Resize handling ----------
-
     def _on_canvas_resize(self, _event):
+        self.canvas.update_idletasks()
+        self._center_upload_button()
         if self._current_image is not None:
-            # Recompute layout and redraw with same settings
             self.redraw()
 
-    # ---------- Misc ----------
-
+    # ---------- Public Methods ----------
     def show_upload_button(self):
         self.canvas.delete("all")
-        self.canvas.create_window(0, 0, anchor="nw", window=self.upload_btn, tags="upload_btn")
         self._current_image = None
+        self._center_upload_button()
 
     def get_settings(self):
         return {name: data["var"].get() for name, data in self.controls.items()}
