@@ -28,8 +28,13 @@ DEFAULT_SETTINGS = {
 }
 
 WINDOW_SETTINGS = {
-    "title": "Image Watermark",
+    "title": "MarkIT",
     "minsize": (1000, 600),
-    "padding": (40, 40),
-    "bg": "white"
+    "padding": (10, 10),
+    "bg": "#ffffff"
+}
+
+IMAGE_PATHS = {
+    "LOGO_PATH" : "./assets/logo.png",
+    "UPLOAD_ICON" : "./assets/upload_icon.png",
 }
