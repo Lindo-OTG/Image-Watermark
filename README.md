@@ -13,10 +13,6 @@ MarkIT is a polished Tkinter app for adding text watermarks to images with live 
 - **High-Quality Output** — Proper alpha composition when saving PNG.
 - **Modern UI** — Gradient upload button with large icon; left control panel.
 
-## 🖼️ Screens
-- **Left**: Logo & Watermark Options  
-- **Right**: Preview canvas (image scales to fit 100%)
-
 ## 🚀 Getting Started
 
 ### Requirements
@@ -91,11 +87,12 @@ Edit config/constants.py:
 
 * Colors — Use hex like #000000.
 
-## App Screens
-<img src="./assets/app_screen_1.PNG" alt="App Screen 1" style="width:250px; height: 250px"/>
+## 🖼️ App Screens
+- **Left**: Logo & Watermark Options  
+- **Right**: Preview canvas (image scales to fit 100%)
 
-<img src="./assets/app_screen_2.PNG" alt="App Screen 2" style="width:250px; height: 250px"/>
-
+<img src="./assets/app_screen_1.PNG" alt="App Screen 1" style="width:650px; height: 450px"/>   
+<img src="./assets/app_screen_2.PNG" alt="App Screen 2" style="width:750px; height: 450px"/>
 
 ## 📝 License
 This project is licensed under the MIT License.
