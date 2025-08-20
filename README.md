@@ -91,6 +91,11 @@ Edit config/constants.py:
 
 * Colors — Use hex like #000000.
 
+## App Screens
+<img src="./assets/app_screen_1.PNG" alt="App Screen 1" style="width:250px; height: 250px"/>
+
+<img src="./assets/app_screen_2.PNG" alt="App Screen 2" style="width:250px; height: 250px"/>
+
 
 ## 📝 License
 This project is licensed under the MIT License.
