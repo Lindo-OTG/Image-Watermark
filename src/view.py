@@ -88,7 +88,7 @@ class WatermarkView:
 
         # Controls
         Label(self.control_frame, text="WATERMARK OPTIONS",
-              font=("Segoe UI", 15, "bold"), bg="#3740ec", fg="white").pack(pady=10)
+            font=("Segoe UI", 15, "bold"), bg="#3740ec", fg="white").pack(pady=10)
 
         self.controls = {}
         self._create_controls()
@@ -102,29 +102,21 @@ class WatermarkView:
         self.canvas.bind("<ButtonRelease-1>", self.on_release_drag)
 
     def _create_upload_button(self):
-        """Create a styled upload button with icon + text"""
-        try:
-            icon_img = Image.open(self.upload_icon_path)
-            icon_img = icon_img.resize((32, 32), Image.LANCZOS)
-            self.upload_icon = ImageTk.PhotoImage(icon_img)
-        except Exception as e:
-            print(f"Error loading upload icon: {e}")
-            self.upload_icon = None
-
-        # Create button
+        """Create the styled gradient upload button with icon"""
         self.upload_btn = GradientButton(
             self.canvas,
-            text="UPLOAD IMAGE",
-            command=lambda: self.controller.load_image(),
-            width=200,
-            height=70,
-            color1="#4facfe",   # top gradient color
-            color2="#00f2fe"    # bottom gradient color
+            text="Upload Image",
+            width=240,
+            height=140,
+            color1="#4facfe",
+            color2="#00f2fe",
+            icon_path=self.upload_icon_path
         )
-        
+
+        # Place the button centered on the canvas
         self.upload_btn_window = self.canvas.create_window(
-            self.canvas.winfo_width()//2,
-            self.canvas.winfo_height()//2,
+            self.canvas.winfo_width() // 2,
+            self.canvas.winfo_height() // 2,
             anchor="center",
             window=self.upload_btn,
             tags="upload_btn"
@@ -160,11 +152,11 @@ class WatermarkView:
 
     def _create_fallback_logo(self, frame):
         Label(frame,
-              text="MarkIT",
-              bg="#2f3bff",
-              fg="white",
-              font=("Segoe UI", 15, "bold")
-              ).pack(pady=20)
+            text="MarkIT",
+            bg="#2f3bff",
+            fg="white",
+            font=("Segoe UI", 15, "bold")
+            ).pack(pady=20)
 
     def _create_controls(self):
         self.create_control("TEXT", "text", Entry)
@@ -191,7 +183,7 @@ class WatermarkView:
         frame = Frame(self.control_frame, bg="#3740ec")
         frame.pack(fill=X, padx=15, pady=5)
         Label(frame, text=label, font=("Arial", 10, "bold"),
-              bg="#3740ec", fg="white", width=12, anchor="w").pack(side=LEFT)
+            bg="#3740ec", fg="white", width=12, anchor="w").pack(side=LEFT)
 
         if widget_type == ttk.Combobox:
             var = StringVar()
@@ -199,7 +191,7 @@ class WatermarkView:
         elif widget_type == Scale:
             var = IntVar()
             control = widget_type(frame, from_=kwargs.pop('from_'),
-                                  to=kwargs.pop('to'), variable=var,
+                                to=kwargs.pop('to'), variable=var,
                                   orient=HORIZONTAL, **kwargs)
         else:
             var = StringVar()
@@ -270,7 +262,12 @@ class WatermarkView:
         self.overlay_photo = ImageTk.PhotoImage(txt_img)
 
         x, y = self._resolve_canvas_center(pos)
-        self.watermark_item = self.canvas.create_image(int(x), int(y), image=self.overlay_photo, anchor="center")
+        self.watermark_item = self.canvas.create_image(
+            int(x), int(y),
+            image=self.overlay_photo,
+            anchor="center"
+        )
+
         self.canvas.tag_bind(self.watermark_item, "<Enter>", lambda e: self.canvas.config(cursor="hand2"))
         self.canvas.tag_bind(self.watermark_item, "<Leave>", lambda e: self.canvas.config(cursor=""))
 
@@ -388,7 +385,13 @@ class WatermarkView:
         self._center_upload_button()
 
     def get_settings(self):
-        return {name: data["var"].get() for name, data in self.controls.items()}
+        s = {name: data["var"].get() for name, data in self.controls.items()}
+        for k in ("size", "opacity", "angle"):
+            try:
+                s[k] = int(s[k])
+            except Exception:
+                pass
+        return s
 
     def set_settings(self, settings):
         for name, value in settings.items():
